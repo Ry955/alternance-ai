@@ -113,6 +113,12 @@ Dans **Settings > Secrets and variables > Actions** :
 
 Le principal de service reçoit le rôle **Contributor** limité au seul groupe de ressources du projet, conformément au principe de moindre privilège vu en cours.
 
+### Activer le déploiement
+
+Tant que l'infrastructure n'existe pas, le job de déploiement est volontairement ignoré : le pipeline se limite aux tests et à la construction de l'image, et reste donc au vert.
+
+Pour l'activer, créer la variable de dépôt `DEPLOY_ENABLED` avec la valeur `true` dans **Settings > Secrets and variables > Actions > Variables**. Le job de déploiement s'exécutera alors à chaque `push` sur `main`.
+
 ### Supprimer les ressources
 
 ```bash

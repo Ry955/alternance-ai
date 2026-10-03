@@ -51,7 +51,12 @@ jobs:
   deploiement:
     name: Publier sur ACR et deployer sur Container Apps
     needs: tests
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    # Activer en posant la variable de depot DEPLOY_ENABLED = true,
+    # une fois l'infrastructure creee et les secrets Azure enregistres.
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'push' &&
+      vars.DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
