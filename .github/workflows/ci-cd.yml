@@ -1,0 +1,85 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  IMAGE_NAME: alternance-ai
+
+jobs:
+  tests:
+    name: Tests et qualite d'image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Installer les dependances
+        run: pip install -r requirements-dev.txt
+
+      - name: Lancer les tests
+        env:
+          LLM_PROVIDER: mock
+        run: pytest -q
+
+      - name: Construire l'image
+        run: docker build -t $IMAGE_NAME:${{ github.sha }} .
+
+      - name: Verifier que le conteneur demarre et repond
+        run: |
+          docker run -d --name verif -p 8000:8000 -e LLM_PROVIDER=mock $IMAGE_NAME:${{ github.sha }}
+          for i in $(seq 1 20); do
+            if curl -fsS http://localhost:8000/health; then echo "OK"; exit 0; fi
+            sleep 2
+          done
+          echo "Le conteneur n'a pas repondu"; docker logs verif; exit 1
+
+      - name: Scanner les vulnerabilites
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.IMAGE_NAME }}:${{ github.sha }}
+          severity: CRITICAL,HIGH
+          exit-code: "0"
+
+  deploiement:
+    name: Publier sur ACR et deployer sur Container Apps
+    needs: tests
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Connexion a Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Construire et pousser l'image dans ACR
+        run: |
+          az acr build \
+            --registry ${{ secrets.ACR_NAME }} \
+            --image $IMAGE_NAME:${{ github.sha }} \
+            --image $IMAGE_NAME:latest \
+            .
+
+      - name: Mettre a jour la Container App
+        run: |
+          az containerapp update \
+            --name ${{ secrets.CONTAINERAPP_NAME }} \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --image ${{ secrets.ACR_NAME }}.azurecr.io/$IMAGE_NAME:${{ github.sha }} \
+            --set-env-vars APP_VERSION=${{ github.sha }}
+
+      - name: Afficher l'URL publique
+        run: |
+          az containerapp show \
+            --name ${{ secrets.CONTAINERAPP_NAME }} \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --query "properties.configuration.ingress.fqdn" --output tsv

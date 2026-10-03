@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Assistant alternance</title>
+<style>
+  :root {
+    --bleu: #1f4fd8; --fond: #f5f7fb; --carte: #fff;
+    --texte: #16181d; --gris: #5b6472; --bord: #dfe4ee;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--fond); color: var(--texte);
+    font: 15px/1.55 "Segoe UI", system-ui, sans-serif;
+  }
+  header { background: var(--bleu); color: #fff; padding: 22px 16px; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+  header h1 { margin: 0 0 4px; font-size: 21px; }
+  header p { margin: 0; opacity: .85; font-size: 14px; }
+  main { padding: 24px 0 60px; }
+  .grille { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .grille { grid-template-columns: 1fr; } }
+  .champ { display: flex; flex-direction: column; }
+  label { font-weight: 600; margin-bottom: 6px; font-size: 14px; }
+  textarea {
+    min-height: 190px; padding: 11px; border: 1px solid var(--bord);
+    border-radius: 8px; font: inherit; resize: vertical; background: var(--carte);
+  }
+  textarea:focus { outline: 2px solid var(--bleu); border-color: transparent; }
+  .barre { display: flex; align-items: center; gap: 14px; margin: 18px 0; flex-wrap: wrap; }
+  button {
+    background: var(--bleu); color: #fff; border: 0; padding: 11px 22px;
+    border-radius: 8px; font: 600 15px inherit; cursor: pointer;
+  }
+  button:disabled { opacity: .55; cursor: default; }
+  .lien { background: none; color: var(--bleu); text-decoration: underline; padding: 0; font-weight: 500; }
+  .etat { color: var(--gris); font-size: 14px; }
+  .carte {
+    background: var(--carte); border: 1px solid var(--bord);
+    border-radius: 10px; padding: 18px; margin-top: 16px;
+  }
+  .score { display: flex; align-items: center; gap: 16px; }
+  .jauge { flex: 1; height: 10px; background: #e8ecf5; border-radius: 6px; overflow: hidden; }
+  .jauge span { display: block; height: 100%; background: var(--bleu); transition: width .5s; }
+  .valeur { font-size: 30px; font-weight: 700; color: var(--bleu); min-width: 76px; }
+  h2 { font-size: 16px; margin: 20px 0 8px; }
+  ul { margin: 0; padding-left: 20px; }
+  li { margin: 5px 0; }
+  pre.lettre { white-space: pre-wrap; font: inherit; background: #f8f9fc;
+    border-left: 3px solid var(--bleu); padding: 14px; border-radius: 0 6px 6px 0; margin: 0; }
+  .alerte { background: #fff4e5; border: 1px solid #ffd79a; color: #7a4a00;
+    padding: 10px 14px; border-radius: 8px; font-size: 14px; margin-top: 16px; }
+  .erreur { background: #fdecec; border-color: #f5b5b5; color: #8c1c1c; }
+  footer { color: var(--gris); font-size: 13px; text-align: center; padding: 20px 0; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>Assistant de candidature en alternance</h1>
+    <p>Collez une offre et votre profil : score de compatibilité, compétences manquantes et lettre ciblée.</p>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="grille">
+    <div class="champ">
+      <label for="offre">Offre d'alternance</label>
+      <textarea id="offre" placeholder="Collez ici le texte complet de l'offre."></textarea>
+    </div>
+    <div class="champ">
+      <label for="profil">Votre profil</label>
+      <textarea id="profil" placeholder="Formation, compétences techniques, projets, langues, disponibilité."></textarea>
+    </div>
+  </div>
+
+  <div class="barre">
+    <button id="go">Analyser</button>
+    <button class="lien" id="exemple" type="button">Remplir avec un exemple</button>
+    <span class="etat" id="etat"></span>
+  </div>
+
+  <div id="sortie"></div>
+</main>
+
+<footer class="wrap">Projet Cloud Computing &mdash; CY TECH ING3 &middot; <span id="version"></span></footer>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+const EXEMPLE_OFFRE = `Alternance - Ingénieur Data / Cloud (12 mois)
+Lieu : Paris 9e - Rythme : 3 semaines entreprise / 1 semaine école
+Nous recherchons un alternant pour renforcer l'équipe Data Platform.
+Missions : industrialiser les pipelines de données, automatiser les déploiements,
+participer à la migration vers Azure, mettre en place le monitoring des traitements.
+Compétences attendues : Python, SQL, Docker, notions de CI/CD, curiosité pour le cloud.
+Un intérêt pour Kubernetes et l'infrastructure-as-code est un plus.`;
+
+const EXEMPLE_PROFIL = `Étudiant en 3e année du cycle ingénieur à CY TECH, spécialité Business Intelligence.
+Compétences : Python, SQL, Talend, Power BI, Docker, Git et GitHub Actions.
+Projets : entrepôt de données sur la mobilité urbaine, application conteneurisée
+déployée via un pipeline d'intégration continue, automatisation de workflows.
+Recherche une alternance de 12 mois à partir de septembre 2026. Anglais professionnel.`;
+
+$("exemple").onclick = () => {
+  $("offre").value = EXEMPLE_OFFRE;
+  $("profil").value = EXEMPLE_PROFIL;
+};
+
+function echappe(s) {
+  return String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+}
+
+function afficher(d) {
+  const liste = (items) => items.map(i => `<li>${echappe(i)}</li>`).join("");
+  $("sortie").innerHTML = `
+    <div class="carte">
+      <div class="score">
+        <div class="valeur">${d.score}<small style="font-size:15px">/100</small></div>
+        <div class="jauge"><span style="width:${d.score}%"></span></div>
+      </div>
+      <h2>Points forts</h2><ul>${liste(d.points_forts || [])}</ul>
+      <h2>Compétences à renforcer</h2><ul>${liste(d.competences_manquantes || [])}</ul>
+      <h2>Lettre de motivation</h2>
+      <pre class="lettre">${echappe(d.lettre || "")}</pre>
+    </div>
+    ${d._mock ? '<div class="alerte">Mode démonstration : réponse figée, aucun appel au modèle. Définissez LLM_PROVIDER pour une analyse réelle.</div>' : ""}`;
+}
+
+$("go").onclick = async () => {
+  const offre = $("offre").value.trim();
+  const profil = $("profil").value.trim();
+  if (offre.length < 30 || profil.length < 30) {
+    $("sortie").innerHTML = '<div class="alerte erreur">Renseignez l\'offre et le profil (30 caractères minimum chacun).</div>';
+    return;
+  }
+  $("go").disabled = true;
+  $("etat").textContent = "Analyse en cours…";
+  $("sortie").innerHTML = "";
+  try {
+    const r = await fetch("/api/analyse", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ offre, profil }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || "Erreur " + r.status);
+    afficher(data);
+  } catch (e) {
+    $("sortie").innerHTML = `<div class="alerte erreur">${echappe(e.message)}</div>`;
+  } finally {
+    $("go").disabled = false;
+    $("etat").textContent = "";
+  }
+};
+
+fetch("/health").then(r => r.json()).then(d => {
+  $("version").textContent = `version ${d.version} · fournisseur ${d.provider}`;
+}).catch(() => {});
+</script>
+</body>
+</html>
