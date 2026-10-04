@@ -8,6 +8,10 @@ Projet du module **Cloud Computing** (CY TECH, ING3 BI) : conteneurisation, pipe
 
 > Le premier chargement peut prendre quelques secondes : l'application descend à zéro replica lorsqu'elle n'est pas sollicitée.
 
+**Vidéo de démonstration :** [docs/demo.mp4](docs/demo.mp4) — 1 min 27
+
+Elle montre l'application en production, puis une modification du code poussée sur `main` qui déclenche le pipeline et se retrouve en ligne sans aucune intervention manuelle. Le numéro de version affiché en bas de page est le SHA du commit déployé : il change entre le début et la fin de la vidéo. L'attente du pipeline est accélérée huit fois.
+
 ---
 
 ## 1. Le problème traité
