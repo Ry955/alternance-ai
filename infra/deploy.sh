@@ -9,7 +9,14 @@ ACR_NAME="${ACR_NAME:-alternanceacr$RANDOM}"
 CA_ENV="${CA_ENV:-alternance-env}"
 CA_APP="${CA_APP:-alternance-ai}"
 AOAI_NAME="${AOAI_NAME:-alternance-openai-$RANDOM}"
-AOAI_DEPLOYMENT="${AOAI_DEPLOYMENT:-gpt-4o-mini}"
+AOAI_DEPLOYMENT="${AOAI_DEPLOYMENT:-gpt-4o}"
+# Region, modele et version dependent du quota de l'abonnement.
+# Quotas disponibles : az cognitiveservices usage list --location <region>
+# Versions non obsoletes : az cognitiveservices model list --location <region>
+AOAI_LOCATION="${AOAI_LOCATION:-swedencentral}"
+AOAI_SKU="${AOAI_SKU:-Standard}"
+AOAI_MODEL="${AOAI_MODEL:-gpt-4o}"
+AOAI_MODEL_VERSION="${AOAI_MODEL_VERSION:-2024-11-20}"
 IMAGE="alternance-ai:v1"
 
 echo "==> Groupe de ressources"
@@ -24,14 +31,18 @@ az acr create \
   --output none
 LOGIN_SERVER=$(az acr show --name "$ACR_NAME" --query loginServer --output tsv)
 
-echo "==> Construction de l'image dans ACR"
-az acr build --registry "$ACR_NAME" --image "$IMAGE" . --output none
+# ACR Tasks (az acr build) est refuse sur les abonnements d'essai :
+# l'image est donc construite localement puis poussee vers le registre.
+echo "==> Construction et envoi de l'image"
+az acr login --name "$ACR_NAME"
+docker build -t "$LOGIN_SERVER/$IMAGE" .
+docker push "$LOGIN_SERVER/$IMAGE"
 
-echo "==> Azure OpenAI : $AOAI_NAME"
+echo "==> Azure OpenAI : $AOAI_NAME ($AOAI_LOCATION)"
 az cognitiveservices account create \
   --name "$AOAI_NAME" \
   --resource-group "$RESOURCE_GROUP" \
-  --location "$LOCATION" \
+  --location "$AOAI_LOCATION" \
   --kind OpenAI \
   --sku S0 \
   --yes --output none
@@ -40,11 +51,11 @@ az cognitiveservices account deployment create \
   --name "$AOAI_NAME" \
   --resource-group "$RESOURCE_GROUP" \
   --deployment-name "$AOAI_DEPLOYMENT" \
-  --model-name gpt-4o-mini \
-  --model-version "2024-07-18" \
+  --model-name "$AOAI_MODEL" \
+  --model-version "$AOAI_MODEL_VERSION" \
   --model-format OpenAI \
   --sku-capacity 10 \
-  --sku-name Standard \
+  --sku-name "$AOAI_SKU" \
   --output none
 
 AOAI_ENDPOINT=$(az cognitiveservices account show --name "$AOAI_NAME" \

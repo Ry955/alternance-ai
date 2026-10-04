@@ -66,13 +66,18 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      # ACR Tasks (az acr build) est refuse sur les abonnements d'essai :
+      # l'image est construite sur le runner puis poussee vers le registre.
       - name: Construire et pousser l'image dans ACR
         run: |
-          az acr build \
-            --registry ${{ secrets.ACR_NAME }} \
-            --image $IMAGE_NAME:${{ github.sha }} \
-            --image $IMAGE_NAME:latest \
+          REGISTRE="${{ secrets.ACR_NAME }}.azurecr.io"
+          az acr login --name ${{ secrets.ACR_NAME }}
+          docker build \
+            -t $REGISTRE/$IMAGE_NAME:${{ github.sha }} \
+            -t $REGISTRE/$IMAGE_NAME:latest \
             .
+          docker push $REGISTRE/$IMAGE_NAME:${{ github.sha }}
+          docker push $REGISTRE/$IMAGE_NAME:latest
 
       - name: Mettre a jour la Container App
         run: |

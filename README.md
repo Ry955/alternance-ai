@@ -4,6 +4,10 @@ Application web qui compare une offre d'alternance au profil d'un candidat et re
 
 Projet du module **Cloud Computing** (CY TECH, ING3 BI) : conteneurisation, pipeline d'intégration et de déploiement continus, mise en production sur Microsoft Azure.
 
+**Application en ligne :** https://alternance-ai.kinddesert-35f433ec.francecentral.azurecontainerapps.io
+
+> Le premier chargement peut prendre quelques secondes : l'application descend à zéro replica lorsqu'elle n'est pas sollicitée.
+
 ---
 
 ## 1. Le problème traité
@@ -23,11 +27,15 @@ L'application automatise ces deux étapes. Elle ne remplace pas le candidat : el
 Navigateur
     |  HTTPS
     v
-Azure Container Apps  (ingress externe, 0 à 5 replicas, mise à l'échelle automatique)
-    |  clé stockée en secret de l'application
+Azure Container Apps  —  France Central
+    |  (ingress externe, 0 à 5 replicas, mise à l'échelle automatique)
+    |  clé injectée en secret de l'application
     v
-Azure OpenAI  (déploiement gpt-4o-mini)
+Azure OpenAI  —  Sweden Central
+    (déploiement gpt-4o, SKU Standard)
 ```
+
+Les deux régions sont dans l'Union européenne. L'application est en France pour la latence et la résidence des données ; le modèle est en Suède parce que c'est la seule région où l'abonnement dispose d'un quota (voir la section 9).
 
 L'image est publiée dans **Azure Container Registry**, construite et déployée par **GitHub Actions**.
 
@@ -47,7 +55,7 @@ ACI aurait imposé de créer autant d'instances que de replicas et de gérer le 
 |---|---|---|
 | API | FastAPI (Python 3.13) | validation des entrées par Pydantic, documentation OpenAPI automatique |
 | Interface | HTML et JavaScript natifs | aucune étape de build, image plus légère |
-| Modèle | Azure OpenAI, gpt-4o-mini | sortie JSON imposée, coût faible |
+| Modèle | Azure OpenAI, gpt-4o (2024-11-20) | sortie JSON imposée, seul modèle récent disposant de quota |
 | Conteneur | python:3.13-slim | image réduite, utilisateur non privilégié |
 | Registre | Azure Container Registry | privé, intégré à Container Apps |
 | CI/CD | GitHub Actions | demandé par le sujet |
@@ -119,6 +127,8 @@ Tant que l'infrastructure n'existe pas, le job de déploiement est volontairemen
 
 Pour l'activer, créer la variable de dépôt `DEPLOY_ENABLED` avec la valeur `true` dans **Settings > Secrets and variables > Actions > Variables**. Le job de déploiement s'exécutera alors à chaque `push` sur `main`.
 
+Sur ce dépôt, l'infrastructure existe et la variable est posée : chaque `push` sur `main` redéploie l'application.
+
 ### Supprimer les ressources
 
 ```bash
@@ -162,14 +172,42 @@ Déclencheur : chaque `push` et chaque `pull request` sur `main`.
 
 **Journaux structurés en JSON.** Ils sont exploitables directement par Log Analytics, sans analyse syntaxique supplémentaire.
 
-## 9. Limites connues
+## 9. Contraintes de l'abonnement et arbitrages
+
+Le déploiement s'est fait sur un abonnement **Azure Free Trial** (200 $ de crédit, 30 jours, limite de dépense active). Trois restrictions ont imposé des choix d'architecture, documentés ici parce qu'elles sont représentatives de ce qu'on rencontre sur un abonnement contraint.
+
+**ACR Tasks indisponible.** La commande `az acr build`, qui fait construire l'image par le registre, est refusée : `TasksOperationsNotAllowed`. L'image est donc construite localement, puis poussée vers le registre. Le pipeline applique la même approche : le runner GitHub construit l'image et la pousse. Cela consomme un peu de bande passante, mais supprime une dépendance à un service facturé séparément.
+
+**Quota de modèle nul sauf en Suède.** Toutes les régions affichent un quota de 0 jeton par minute, à l'exception de Sweden Central (200 000 pour gpt-4o-mini, 50 000 pour gpt-4o). France Central propose bien le modèle au catalogue, mais sans capacité allouée : la création échoue avec `InsufficientQuota`. La ressource Azure OpenAI est donc en Suède, l'application restant en France. Les deux régions sont dans l'Union européenne, et la latence ajoutée entre elles est négligeable devant le temps de réponse du modèle.
+
+Vérifier avant tout déploiement :
+
+```bash
+az cognitiveservices usage list --location swedencentral \
+  --query "[?limit>\`0\`].{quota:name.value, limite:limit}" -o table
+```
+
+**Version de modèle obsolète.** `gpt-4o-mini` en version `2024-07-18` est bloqué pour les nouveaux déploiements depuis le 31 mars 2026, alors qu'il figure toujours au catalogue. Le projet utilise `gpt-4o` en version `2024-11-20`, valide jusqu'en avril 2027. Le modèle, sa version, la région et le SKU sont des variables d'environnement du script de déploiement, pour que cette obsolescence n'impose pas de modifier le code :
+
+```bash
+AOAI_MODEL=gpt-4o AOAI_MODEL_VERSION=2024-11-20 bash infra/deploy.sh
+```
+
+Lister les versions encore déployables :
+
+```bash
+az cognitiveservices model list --location swedencentral \
+  --query "[?model.name=='gpt-4o'].{version:model.version, fin:model.deprecation.inference}" -o table
+```
+
+## 10. Limites connues
 
 - Le démarrage à froid ajoute quelques secondes à la première requête après une période d'inactivité, conséquence assumée du minimum à zéro replica.
 - Aucune donnée n'est conservée : l'application ne stocke ni les offres ni les profils soumis. C'est un choix de confidentialité, qui interdit en contrepartie l'historique.
 - Le score produit par le modèle est indicatif et peut varier d'un appel à l'autre.
 - L'analyse des vulnérabilités signale les failles sans faire échouer la construction (`exit-code: 0`), afin qu'une faille non corrigible en amont ne bloque pas les rendus.
 
-## 10. Structure du dépôt
+## 11. Structure du dépôt
 
 ```
 .
