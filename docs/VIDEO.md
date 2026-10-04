@@ -24,8 +24,11 @@ doit donc montrer le pipeline au travail, pas seulement l'application qui foncti
 - Cliquer sur **Analyser**.
 - Commenter le résultat : le score, les compétences manquantes, la lettre générée.
 
-> « L'application tourne sur Azure Container Apps. Le modèle est un gpt-4o-mini déployé
-> sur Azure OpenAI, appelé depuis le conteneur avec une clé stockée en secret. »
+> « L'application tourne sur Azure Container Apps, en France Central. Le modèle est un
+> gpt-4o déployé sur Azure OpenAI en Suède, appelé depuis le conteneur avec une clé
+> stockée en secret de l'application. Les deux régions sont dans l'Union européenne :
+> le modèle est en Suède parce que c'est la seule région où l'abonnement dispose d'un
+> quota, une contrainte que je détaille dans le README. »
 
 Montrer `/health` dans un onglet : il affiche la version déployée, c'est-à-dire le SHA du
 commit. Ce détail sert à l'étape 5.
