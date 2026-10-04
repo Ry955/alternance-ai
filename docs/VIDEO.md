@@ -1,5 +1,28 @@
 # Script de la vidéo de démonstration
 
+> **Version muette (la plus rapide).** Si vous ne voulez pas commenter, enregistrez simplement
+> l'enchaînement ci-dessous, sans audio. Le README porte déjà l'argumentation ; la vidéo sert
+> de preuve de fonctionnement. Durée : 2 à 3 minutes.
+>
+> 1. Ouvrir l'application en ligne, coller une offre et un profil, cliquer sur **Analyser**,
+>    laisser le résultat s'afficher à l'écran quelques secondes.
+> 2. Ouvrir `/health` dans un onglet : noter le numéro de version affiché.
+> 3. Modifier une ligne visible de l'interface dans l'éditeur, par exemple le titre.
+> 4. `git commit` puis `git push`.
+> 5. Aller sur l'onglet **Actions** de GitHub, laisser tourner, montrer les deux jobs passer
+>    au vert — en accéléré si votre outil le permet.
+> 6. Rafraîchir l'application : la modification est en ligne.
+> 7. Rafraîchir `/health` : le numéro de version a changé.
+>
+> Les étapes 3 à 7 constituent l'essentiel : elles prouvent que le déploiement est automatique.
+> Si vous voulez un minimum de contexte sans parler, ajoutez de courts cartons de texte entre
+> les séquences, par exemple « Modification du code », « Pipeline automatique », « En production ».
+>
+> La version commentée ci-dessous reste disponible si vous changez d'avis.
+
+---
+
+
 Durée visée : 4 à 5 minutes. Enregistrement de l'écran avec commentaire audio.
 Outil suggéré : l'enregistreur intégré de Windows (`Win + Alt + R`) ou OBS Studio.
 
